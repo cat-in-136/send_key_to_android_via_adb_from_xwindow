@@ -1,2 +1,2 @@
 *.swp
-send_key_using_adb_from_xwindow
+send_key_to_android_via_adb_from_xwindow
