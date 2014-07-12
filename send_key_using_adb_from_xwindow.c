@@ -16,8 +16,13 @@
  *
  */
 #include <stdlib.h>
-#include <glib.h>
-#include <gtk/gtk.h>
+#include <stdio.h>
+
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
+#include <X11/Shell.h>
+#include <X11/Xaw/Form.h>
+#include <X11/Xaw/Label.h>
 
 
 #define KEYCODE_UNKNOWN 0
@@ -243,133 +248,142 @@
 #define KEYCODE_BRIGHTNESS_UP 221
 #define KEYCODE_MEDIA_AUDIO_TRACK 222
 
-static void sendKeycode(gchar android_keycode)
+static XtAppContext app_context;
+static Widget toplevel;
+static Widget form;
+static Widget label;
+
+static void sendKeycode(char android_keycode)
 {
-  gchar *str = NULL;
+  char str[BUFSIZ];
 
   if (android_keycode != 0) {
-    str = g_strdup_printf("adb shell input keyevent \"%d\"", android_keycode);
+    snprintf(str, sizeof(str), "adb shell input keyevent \"%d\"", android_keycode);
 
     system(str);
-
-    g_free(str);
   }
 }
 
-static void sendText(const gchar *text)
+static void sendText(const char *text)
 {
-  gchar *str = NULL;
+  char str[BUFSIZ];
 
   if (text != NULL) {
-    str = g_strdup_printf("adb shell input text \"%s\"", text);
+    snprintf(str, sizeof(str), "adb shell input text \"%s\"", text);
 
     system(str);
-
-    g_free(str);
   }
 }
 
-static void destroy(GtkWidget *widget, gpointer user_data)
+static void sendTextChar(char textChar)
 {
-  gtk_main_quit();
+  const char str[2] = {textChar, 0x00};
+
+  sendText(str);
 }
 
-static gboolean key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+static void key_press(Widget widget, XtPointer client_data, XEvent *event, Boolean *b)
 {
-  if ((GDK_KEY_a <= event->keyval) && (event->keyval <= GDK_KEY_z)) {
-    sendText(event->string);
-  } else if ((GDK_KEY_A <= event->keyval) && (event->keyval <= GDK_KEY_Z)) {
-    sendText(event->string);
-  } else if ((GDK_KEY_0 <= event->keyval) && (event->keyval <= GDK_KEY_9)) {
-    sendText(event->string);
-  } else if ((GDK_KEY_KP_0 <= event->keyval) && (event->keyval <= GDK_KEY_KP_9)) {
-    sendText(event->string);
-  } else if (event->keyval == GDK_KEY_BackSpace) {
+  char key_string[BUFSIZ];
+  KeySym sym;
+
+  XLookupString(&event->xkey, key_string, sizeof(key_string), &sym, NULL);
+
+  if ((XK_a <= sym) && (sym <= XK_z)) {
+    sendTextChar('a' + (char)(sym - XK_a));
+  } else if ((XK_A <= sym) && (sym <= XK_Z)) {
+    sendTextChar('A' + (char)(sym - XK_A));
+  } else if ((XK_0 <= sym) && (sym <= XK_9)) {
+    sendTextChar('0' + (char)(sym - XK_0));
+  } else if ((XK_KP_0 <= sym) && (sym <= XK_KP_9)) {
+    sendTextChar('0' + (char)(sym - XK_KP_0));
+  } else if (sym == XK_BackSpace) {
     sendKeycode(KEYCODE_DEL);
-  } else if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
+  } else if (sym == XK_Return || sym == XK_KP_Enter) {
     sendKeycode(KEYCODE_ENTER);
-  } else if (event->keyval == GDK_KEY_Pause) {
+  } else if (sym == XK_Pause) {
     sendKeycode(KEYCODE_HOME);
-  } else if (event->keyval == GDK_KEY_Escape) {
+  } else if (sym == XK_Escape) {
     sendKeycode(KEYCODE_BACK);
-  } else if (event->keyval == GDK_KEY_asterisk) {
+  } else if (sym == XK_asterisk) {
     sendKeycode(KEYCODE_STAR);
-  } else if (event->keyval == GDK_KEY_numbersign) {
+  } else if (sym == XK_numbersign) {
     sendKeycode(KEYCODE_POUND);
-  } else if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left) {
+  } else if (sym == XK_Left || sym == XK_KP_Left) {
     sendKeycode(KEYCODE_DPAD_LEFT);
-  } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) {
+  } else if (sym == XK_Up || sym == XK_KP_Up) {
     sendKeycode(KEYCODE_DPAD_UP);
-  } else if (event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
+  } else if (sym == XK_Right || sym == XK_KP_Right) {
     sendKeycode(KEYCODE_DPAD_RIGHT);
-  } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) {
+  } else if (sym == XK_Down || sym == XK_KP_Down) {
     sendKeycode(KEYCODE_DPAD_DOWN);
 #if 0
-  } else if (event->keyval == GDK_KEY_AudioRaiseVolume) {
+  } else if (sym == XK_AudioRaiseVolume) {
     sendKeycode(KEYCODE_VOLUME_UP);
-  } else if (event->keyval == GDK_KEY_AudioLowerVolume) {
+  } else if (sym == XK_AudioLowerVolume) {
     sendKeycode(KEYCODE_VOLUME_DOWN);
-  } else if (event->keyval == GDK_KEY_PowerDown) {
+  } else if (sym == XK_PowerDown) {
     sendKeycode(KEYCODE_POWER);
 #endif
-  } else if (event->keyval == GDK_KEY_comma) {
+  } else if (sym == XK_comma) {
     sendKeycode(KEYCODE_COMMA);
-  } else if (event->keyval == GDK_KEY_period) {
+  } else if (sym == XK_period) {
     sendKeycode(KEYCODE_PERIOD);
-  } else if (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_KP_Tab) {
+  } else if (sym == XK_Tab || sym == XK_KP_Tab) {
     sendKeycode(KEYCODE_TAB);
-  } else if (event->keyval == GDK_KEY_space || event->keyval == GDK_KEY_KP_Space) {
+  } else if (sym == XK_space || sym == XK_KP_Space) {
     sendKeycode(KEYCODE_SPACE);
-  } else if (event->keyval == GDK_KEY_grave) {
+  } else if (sym == XK_grave) {
     sendKeycode(KEYCODE_GRAVE);
-  } else if (event->keyval == GDK_KEY_minus) {
+  } else if (sym == XK_minus) {
     sendKeycode(KEYCODE_MINUS);
-  } else if (event->keyval == GDK_KEY_equal) {
+  } else if (sym == XK_equal) {
     sendKeycode(KEYCODE_EQUALS);
-  } else if (event->keyval == GDK_KEY_bracketleft) {
+  } else if (sym == XK_bracketleft) {
     sendKeycode(KEYCODE_LEFT_BRACKET);
-  } else if (event->keyval == GDK_KEY_bracketright) {
+  } else if (sym == XK_bracketright) {
     sendKeycode(KEYCODE_RIGHT_BRACKET);
-  } else if (event->keyval == GDK_KEY_backslash) {
+  } else if (sym == XK_backslash) {
     sendKeycode(KEYCODE_BACKSLASH);
-  } else if (event->keyval == GDK_KEY_colon) {
+  } else if (sym == XK_colon) {
     sendKeycode(KEYCODE_SEMICOLON);
-  } else if (event->keyval == GDK_KEY_apostrophe) {
+  } else if (sym == XK_apostrophe) {
     sendKeycode(KEYCODE_APOSTROPHE);
-  } else if (event->keyval == GDK_KEY_slash) {
+  } else if (sym == XK_slash) {
     sendKeycode(KEYCODE_SLASH);
-  } else if (event->keyval == GDK_KEY_at) {
+  } else if (sym == XK_at) {
     sendKeycode(KEYCODE_AT);
-  } else if (event->keyval == GDK_KEY_Menu) {
+  } else if (sym == XK_Menu) {
     sendKeycode(KEYCODE_MENU);
-  } else if (event->keyval == GDK_KEY_Page_Up) {
+  } else if (sym == XK_Page_Up) {
     sendKeycode(KEYCODE_PAGE_UP);
-  } else if (event->keyval == GDK_KEY_Page_Down) {
+  } else if (sym == XK_Page_Down) {
     sendKeycode(KEYCODE_PAGE_DOWN);
-  } else if (event->keyval == GDK_KEY_Delete) {
+  } else if (sym == XK_Delete) {
     sendKeycode(KEYCODE_FORWARD_DEL);
-  } else if (event->keyval == GDK_KEY_Zenkaku_Hankaku) {
+  } else if (sym == XK_Zenkaku_Hankaku) {
     sendKeycode(KEYCODE_SWITCH_CHARSET);
   } else {
-    // NOT
+    return;
   }
 
-  return TRUE;
+  if (strlen(key_string) > 0) {
+    XtVaSetValues(label, XtNlabel, (XtArgVal) key_string, NULL);
+  } else {
+    XtVaSetValues(label, XtNlabel, (XtArgVal) "-", NULL);
+  }
 }
 
 int main(int argc, char *argv[])
 {
-  GtkWidget *window;
+  toplevel = XtOpenApplication(&app_context, "send_key_using_adb_from_xwindow", NULL, 0, &argc, argv, NULL, applicationShellWidgetClass, NULL, 0);
 
-  gtk_init(&argc, &argv);
+  form = XtVaCreateManagedWidget("form", formWidgetClass, toplevel, NULL);
+  label = XtVaCreateManagedWidget("label", labelWidgetClass, form, XtNlabel, "-", XtNwidth, 200, XtNheight, 200, NULL);
+  XtAddEventHandler(label, KeyPressMask, False, key_press, NULL);
 
-  window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-  gtk_window_set_title(GTK_WINDOW(window), "send_key_using_adb_from_xwindow");
-  g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(destroy), NULL);
-  g_signal_connect(G_OBJECT(window), "key-press-event", G_CALLBACK(key_press), NULL);
-
-  gtk_widget_show_all(window);
-  gtk_main();
+  XtRealizeWidget(toplevel);
+  XtAppMainLoop(app_context);
 
   return 0;
 }
